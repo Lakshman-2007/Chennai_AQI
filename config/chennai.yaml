@@ -1,0 +1,31 @@
+# Chennai Sentinel-5P data collection — MVP configuration
+# See config.py for the full set of options and their defaults.
+
+region:
+  name: Chennai
+  method: bbox        # "bbox" (MVP default) or "boundary"
+  min_lat: 12.83
+  max_lat: 13.27
+  min_lon: 80.03
+  max_lon: 80.34
+  # boundary_source: path/to/chennai_boundary.geojson   # only used if method: boundary
+
+date:
+  start: "2025-01-01"
+  end: "2025-01-31"
+
+processing:
+  variable: NO2                # only NO2 is verified for the MVP — see config.py
+  temporal_resolution: daily   # daily is the only resolution implemented in v0.1
+  spatial_aggregation: mean    # mean | median | min | max
+
+quality:
+  enabled: true
+  # threshold_override: 0.75   # optional; defaults to the registry threshold for the variable
+
+output:
+  format: csv
+  output_dir: output
+  csv_filename: sentinel5p_chennai.csv
+  metadata_filename: sentinel5p_chennai_metadata.json
+  processing_version: v0.1
