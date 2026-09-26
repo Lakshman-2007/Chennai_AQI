@@ -132,7 +132,9 @@ async function fetchLive(){
   setStatus('connecting', 'Fetching live reading…');
   document.getElementById('errBox').style.display = 'none';
   try{
-    const res = await fetch(`https://api.waqi.info/feed/chennai/?token=${TOKEN}`);
+    // Query a specific CPCB station (Arumbakkam) rather than the generic
+    // "chennai" city name, which resolves to a PM2.5-only consulate sensor.
+    const res = await fetch(`https://api.waqi.info/feed/@13740/?token=${TOKEN}`);
     const json = await res.json();
     if(json.status !== 'ok') throw new Error(json.data || 'API returned an error');
     const iaqi = json.data.iaqi || {};
