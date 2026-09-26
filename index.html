@@ -186,6 +186,12 @@ async function fetchLive(){
       fetchedSnapshot = fetched.map(r => ({...r}));
       const stamp = json.data.time && json.data.time.s ? json.data.time.s : 'just now';
       setStatus('live', `Live — updated ${stamp} (station: ${json.data.city ? json.data.city.name : 'Chennai'}, via ${ep.label})`);
+      if(attemptErrors.length > 0){
+        const box = document.getElementById('errBox');
+        box.style.display = 'block';
+        box.style.background = '#4a3a12';
+        box.textContent = 'Note: earlier queries were skipped before this one succeeded — ' + attemptErrors.join(' | ');
+      }
       update();
       return;
     } catch(e){
