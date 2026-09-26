@@ -64,7 +64,7 @@
 <body>
 <div class="wrap">
   <h1>Chennai AQI — Live</h1>
-  <p class="sub">Fetches the current Chennai reading from CPCB (via the World Air Quality Index API) every time this page loads. Edit any value below to test how the overall AQI and category would change.</p>
+  <p class="sub">Fetches the current Chennai reading from CPCB (via the World Air Quality Index API) every time this page loads — showing every pollutant sub-index the station reports that day, not a fixed list. Edit any value below to test how the overall AQI and category would change.</p>
   <p class="stamp"><span class="dot" id="statusDot"></span><span id="statusText">Connecting…</span></p>
   <div class="err" id="errBox"></div>
   <div class="banner">
@@ -136,13 +136,22 @@ async function fetchLive(){
     const json = await res.json();
     if(json.status !== 'ok') throw new Error(json.data || 'API returned an error');
     const iaqi = json.data.iaqi || {};
-    const map = { pm25:'PM2.5', pm10:'PM10', no2:'NO2', so2:'SO2', o3:'O3', co:'CO' };
+    // Show every pollutant sub-index the station reports, not a fixed list.
+    // Exclude weather/met fields (temp, humidity, pressure, wind, dew point).
+    const LABELS = {
+      pm25:'PM2.5', pm10:'PM10', no2:'NO2', so2:'SO2', o3:'O3', co:'CO',
+      nh3:'NH3', pb:'Pb', neph:'Neph', 'no':'NO', nox:'NOx',
+    };
+    const EXCLUDE = new Set(['t','h','p','w','wg','wd','dew','r','uvi']);
     const fetched = [];
-    for(const [key,label] of Object.entries(map)){
-      if(iaqi[key] && typeof iaqi[key].v === 'number'){
-        fetched.push({name: label, value: iaqi[key].v});
+    for(const [key, obj] of Object.entries(iaqi)){
+      if(EXCLUDE.has(key)) continue;
+      if(obj && typeof obj.v === 'number'){
+        const label = LABELS[key] || key.toUpperCase();
+        fetched.push({name: label, value: obj.v});
       }
     }
+    fetched.sort((a,b) => b.value - a.value);
     if(fetched.length === 0) throw new Error('No pollutant sub-indices in response');
     rowsData = fetched;
     fetchedSnapshot = fetched.map(r => ({...r}));
