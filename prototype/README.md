@@ -17,21 +17,22 @@ in any browser — no build step, no server, no dependencies.
   driving health risk that day.
 
 ## What's real vs. what isn't
-- The starting numbers are a **real one-time snapshot**, not synthetic.
-- It is **not** a live-refreshing feed — a static HTML file can't call
-  outside APIs on its own. Reopening it later won't show later data;
-  it'll show the same snapshot until someone re-fetches and re-embeds
-  fresh numbers.
+- This version **calls a live API on every page load** —
+  `api.waqi.info/feed/chennai`, sourced from CPCB — so the numbers you
+  see are whatever Chennai's actual readings are at the moment you open
+  it, not a frozen snapshot.
+- Uses a free WAQI API token, visible in the page's JS source (it's a
+  read-only public-data token, not a secret credential).
+- If the live fetch fails (offline, API hiccup, token issue), the page
+  falls back to the last known-good reading and says so on screen —
+  it never just breaks silently.
 - This dashboard sits on top of, and is separate from, the satellite
   (Sentinel-5P/TROPOMI) NO2 pipeline in the rest of this repo. It uses
   ground-station AQI data (aqicn/CPCB), not the satellite column-density
   pipeline's output — those are two different data sources, not yet
   connected to each other.
-
-## Making it truly live
-To get real auto-refresh, this needs to move off a static file onto
-something with a backend: e.g. a small script that calls the aqicn.org
-API (free token at aqicn.org/data-platform/token) on a schedule and
-either writes to a page a server re-generates, or a page hosted
-somewhere that permits outbound API calls. That's a separate,
-slightly bigger build than this file.
+- **Important:** this only works when opened as a plain HTML file
+  (double-click after downloading) or hosted somewhere like GitHub
+  Pages. It will NOT fetch live data if viewed through a hosting
+  environment that blocks outbound API calls (e.g. Claude's own
+  published-artifact preview) — those show a fallback reading instead.

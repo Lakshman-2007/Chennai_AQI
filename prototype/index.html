@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Chennai AQI — Live Snapshot Prototype</title>
+<title>Chennai AQI — Live</title>
 <style>
   :root{
     --ink:#1b1f1a; --paper:#f6f4ee; --paper-2:#eeebe1; --line:#d9d4c4;
@@ -19,9 +19,13 @@
   .wrap{ max-width:900px; margin:0 auto; padding:28px 20px 60px; }
   h1{ font-size:25px; margin:0 0 6px; }
   .sub{ color:var(--muted); font-size:14px; margin:0 0 6px; max-width:62ch; }
-  .stamp{ font-size:12px; color:var(--muted); margin:0 0 16px; }
+  .stamp{ font-size:12px; color:var(--muted); margin:0 0 16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--muted); display:inline-block; }
+  .dot.live{ background:#3f7d4e; box-shadow:0 0 0 0 rgba(63,125,78,.5); animation:pulse 2s infinite; }
+  @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(63,125,78,.4);} 70%{box-shadow:0 0 0 6px rgba(63,125,78,0);} 100%{box-shadow:0 0 0 0 rgba(63,125,78,0);} }
   .banner{ background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:12px 14px; font-size:13px; color:var(--muted); margin-bottom:22px; }
   .banner b{ color:var(--ink); }
+  .err{ background:#7a2020; color:#fff; border-radius:6px; padding:12px 14px; font-size:13px; margin-bottom:22px; display:none; }
 
   .grid{ display:grid; grid-template-columns:1.15fr .85fr; gap:20px; }
   @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
@@ -54,23 +58,25 @@
   button.secondary{ background:transparent; color:var(--moss); border:1px solid var(--moss); }
   .toolbar{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   footer{ margin-top:24px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  .skeleton{ opacity:.4; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Chennai AQI — Live Snapshot Prototype</h1>
-  <p class="sub">Starting values below are the actual current Chennai readings, pulled from CPCB via the World Air Quality Index project. Edit any number and the overall AQI, category, and chart recompute instantly, using the real per-pollutant AQI breakpoint scale.</p>
-  <p class="stamp">Snapshot pulled 2026-09-26 · source: aqicn.org/city/chennai (CPCB — India Central Pollution Control Board)</p>
+  <h1>Chennai AQI — Live</h1>
+  <p class="sub">Fetches the current Chennai reading from CPCB (via the World Air Quality Index API) every time this page loads. Edit any value below to test how the overall AQI and category would change.</p>
+  <p class="stamp"><span class="dot" id="statusDot"></span><span id="statusText">Connecting…</span></p>
+  <div class="err" id="errBox"></div>
   <div class="banner">
-    <b>What's real vs. what to know:</b> these five numbers were the actual live city-level AQI sub-indices at fetch time — not synthetic. They're a one-time snapshot, not an auto-refreshing feed (a published static page can't call outside APIs). Overall AQI, by official convention, is the <b>worst</b> of the five sub-indices — not an average — because that's the pollutant actually driving health risk that day.
+    <b>How this differs from a snapshot:</b> this page calls a live API (api.waqi.info) on every page load — reopen it in an hour and you'll see whatever CPCB is reporting then, not a frozen number. If the fetch fails (offline, API down, token issue), it falls back to the last known good reading and says so above.
   </div>
 
   <div class="grid">
     <div class="card">
       <h2>Pollutant sub-indices (AQI scale, edit to test)</h2>
       <div class="toolbar">
-        <button id="recalc">Recalculate</button>
-        <button class="secondary" id="reset">Reset to live snapshot</button>
+        <button id="refetch">Refetch live data</button>
+        <button class="secondary" id="reset">Reset to fetched values</button>
       </div>
       <table>
         <thead><tr><th>Pollutant</th><th>AQI value</th><th>Category</th></tr></thead>
@@ -95,10 +101,11 @@
     </div>
   </div>
 
-  <footer>AQI categories (US EPA / CPCB-aligned scale): 0–50 Good · 51–100 Moderate · 101–150 Unhealthy for Sensitive Groups · 151–200 Unhealthy · 201–300 Very Unhealthy · 300+ Hazardous. Live figures via aqicn.org, sourced from CPCB — India Central Pollution Control Board.</footer>
+  <footer>AQI categories: 0–50 Good · 51–100 Moderate · 101–150 Unhealthy for Sensitive Groups · 151–200 Unhealthy · 201–300 Very Unhealthy · 300+ Hazardous. Live data via api.waqi.info, sourced from CPCB — India Central Pollution Control Board.</footer>
 </div>
 
 <script>
+const TOKEN = 'c69251009683537f11795bcf3a333387762b6c64';
 const CATS = [
   {max:50,  name:'Good',                          color:'#3f7d4e', desc:'Air quality is satisfactory, poses little or no risk.'},
   {max:100, name:'Moderate',                       color:'#c9c23f', desc:'Acceptable, but may pose a minor concern for a very small number of unusually sensitive people.'},
@@ -109,15 +116,48 @@ const CATS = [
 ];
 function catFor(v){ return CATS.find(c => v <= c.max); }
 
-let rowsData = [
-  {name:'PM2.5', value:76},
-  {name:'PM10',  value:48},
-  {name:'NO2',   value:5},
-  {name:'SO2',   value:2},
-  {name:'O3',    value:12},
-  {name:'CO',    value:10},
+const FALLBACK = [
+  {name:'PM2.5', value:76},{name:'PM10', value:48},{name:'NO2', value:5},
+  {name:'SO2', value:2},{name:'O3', value:12},{name:'CO', value:10},
 ];
-const SNAPSHOT = rowsData.map(r => ({...r}));
+let rowsData = FALLBACK.map(r => ({...r}));
+let fetchedSnapshot = rowsData.map(r => ({...r}));
+
+function setStatus(mode, text){
+  document.getElementById('statusDot').className = 'dot' + (mode==='live' ? ' live' : '');
+  document.getElementById('statusText').textContent = text;
+}
+
+async function fetchLive(){
+  setStatus('connecting', 'Fetching live reading…');
+  document.getElementById('errBox').style.display = 'none';
+  try{
+    const res = await fetch(`https://api.waqi.info/feed/chennai/?token=${TOKEN}`);
+    const json = await res.json();
+    if(json.status !== 'ok') throw new Error(json.data || 'API returned an error');
+    const iaqi = json.data.iaqi || {};
+    const map = { pm25:'PM2.5', pm10:'PM10', no2:'NO2', so2:'SO2', o3:'O3', co:'CO' };
+    const fetched = [];
+    for(const [key,label] of Object.entries(map)){
+      if(iaqi[key] && typeof iaqi[key].v === 'number'){
+        fetched.push({name: label, value: iaqi[key].v});
+      }
+    }
+    if(fetched.length === 0) throw new Error('No pollutant sub-indices in response');
+    rowsData = fetched;
+    fetchedSnapshot = fetched.map(r => ({...r}));
+    const stamp = json.data.time && json.data.time.s ? json.data.time.s : 'just now';
+    setStatus('live', `Live — updated ${stamp} (station: ${json.data.city ? json.data.city.name : 'Chennai'})`);
+  } catch(e){
+    setStatus('idle', 'Live fetch failed — showing last known reading');
+    const box = document.getElementById('errBox');
+    box.style.display = 'block';
+    box.textContent = 'Could not reach the live API (' + e.message + '). Showing fallback data below — you can still edit values manually.';
+    rowsData = FALLBACK.map(r => ({...r}));
+    fetchedSnapshot = rowsData.map(r => ({...r}));
+  }
+  update();
+}
 
 function render(){
   const tbody = document.getElementById('rows');
@@ -133,13 +173,14 @@ function render(){
   tbody.querySelectorAll('input').forEach(inp => {
     inp.addEventListener('input', e => {
       rowsData[+e.target.dataset.i].value = parseFloat(e.target.value) || 0;
-      update();
+      update(false);
     });
   });
 }
 
-function update(){
-  render();
+function update(rerender=true){
+  if(rerender) render();
+  if(rowsData.length===0) return;
   const worst = rowsData.reduce((a,b) => b.value > a.value ? b : a, rowsData[0]);
   const cat = catFor(worst.value);
   document.getElementById('overallAqi').textContent = Math.round(worst.value);
@@ -189,13 +230,13 @@ function update(){
   });
 }
 
-document.getElementById('recalc').addEventListener('click', update);
+document.getElementById('refetch').addEventListener('click', fetchLive);
 document.getElementById('reset').addEventListener('click', () => {
-  rowsData = SNAPSHOT.map(r => ({...r}));
+  rowsData = fetchedSnapshot.map(r => ({...r}));
   update();
 });
 
-update();
+fetchLive();
 </script>
 </body>
 </html>
