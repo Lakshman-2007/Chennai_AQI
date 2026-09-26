@@ -128,47 +128,77 @@ function setStatus(mode, text){
   document.getElementById('statusText').textContent = text;
 }
 
+const ENDPOINTS = [
+  { url: `https://api.waqi.info/feed/geo:13.0724;80.2102/?token=${TOKEN}`, label: 'geo-coordinates' },
+  { url: `https://api.waqi.info/feed/chennai/?token=${TOKEN}`, label: 'city name' },
+];
+
+async function tryEndpoint(ep){
+  let res;
+  try{
+    res = await fetch(ep.url);
+  } catch(networkErr){
+    // fetch() itself threw — this is a network/CORS/offline-level failure,
+    // not an API-level one. Surface the real browser error message.
+    throw new Error(`network error on ${ep.label} query (${networkErr.name}: ${networkErr.message})`);
+  }
+  if(!res.ok){
+    throw new Error(`${ep.label} query returned HTTP ${res.status}`);
+  }
+  let json;
+  try{
+    json = await res.json();
+  } catch(parseErr){
+    throw new Error(`${ep.label} query returned unparseable response`);
+  }
+  if(json.status !== 'ok'){
+    throw new Error(`${ep.label} query — API said: ${json.data || 'unknown error'}`);
+  }
+  return json;
+}
+
 async function fetchLive(){
   setStatus('connecting', 'Fetching live reading…');
   document.getElementById('errBox').style.display = 'none';
-  try{
-    // Query by geo-coordinates (Arumbakkam, a CPCB-monitored area) rather
-    // than a guessed station ID, or the generic "chennai" city name which
-    // resolves to a PM2.5-only US Consulate sensor. geo: is a documented,
-    // reliable "nearest reporting station to this point" API method.
-    const res = await fetch(`https://api.waqi.info/feed/geo:13.0724;80.2102/?token=${TOKEN}`);
-    const json = await res.json();
-    if(json.status !== 'ok') throw new Error(json.data || 'API returned an error');
-    const iaqi = json.data.iaqi || {};
-    // Show every pollutant sub-index the station reports, not a fixed list.
-    // Exclude weather/met fields (temp, humidity, pressure, wind, dew point).
-    const LABELS = {
-      pm25:'PM2.5', pm10:'PM10', no2:'NO2', so2:'SO2', o3:'O3', co:'CO',
-      nh3:'NH3', pb:'Pb', neph:'Neph', 'no':'NO', nox:'NOx',
-    };
-    const EXCLUDE = new Set(['t','h','p','w','wg','wd','dew','r','uvi']);
-    const fetched = [];
-    for(const [key, obj] of Object.entries(iaqi)){
-      if(EXCLUDE.has(key)) continue;
-      if(obj && typeof obj.v === 'number'){
-        const label = LABELS[key] || key.toUpperCase();
-        fetched.push({name: label, value: obj.v});
+  const attemptErrors = [];
+  for(const ep of ENDPOINTS){
+    try{
+      const json = await tryEndpoint(ep);
+      const iaqi = json.data.iaqi || {};
+      const LABELS = {
+        pm25:'PM2.5', pm10:'PM10', no2:'NO2', so2:'SO2', o3:'O3', co:'CO',
+        nh3:'NH3', pb:'Pb', neph:'Neph', 'no':'NO', nox:'NOx',
+      };
+      const EXCLUDE = new Set(['t','h','p','w','wg','wd','dew','r','uvi']);
+      const fetched = [];
+      for(const [key, obj] of Object.entries(iaqi)){
+        if(EXCLUDE.has(key)) continue;
+        if(obj && typeof obj.v === 'number'){
+          fetched.push({name: LABELS[key] || key.toUpperCase(), value: obj.v});
+        }
       }
+      fetched.sort((a,b) => b.value - a.value);
+      if(fetched.length === 0){
+        attemptErrors.push(`${ep.label}: response had no pollutant sub-indices`);
+        continue;
+      }
+      rowsData = fetched;
+      fetchedSnapshot = fetched.map(r => ({...r}));
+      const stamp = json.data.time && json.data.time.s ? json.data.time.s : 'just now';
+      setStatus('live', `Live — updated ${stamp} (station: ${json.data.city ? json.data.city.name : 'Chennai'}, via ${ep.label})`);
+      update();
+      return;
+    } catch(e){
+      attemptErrors.push(e.message);
     }
-    fetched.sort((a,b) => b.value - a.value);
-    if(fetched.length === 0) throw new Error('No pollutant sub-indices in response');
-    rowsData = fetched;
-    fetchedSnapshot = fetched.map(r => ({...r}));
-    const stamp = json.data.time && json.data.time.s ? json.data.time.s : 'just now';
-    setStatus('live', `Live — updated ${stamp} (station: ${json.data.city ? json.data.city.name : 'Chennai'})`);
-  } catch(e){
-    setStatus('idle', 'Live fetch failed — showing last known reading');
-    const box = document.getElementById('errBox');
-    box.style.display = 'block';
-    box.textContent = 'Could not reach the live API (' + e.message + '). Showing fallback data below — you can still edit values manually.';
-    rowsData = FALLBACK.map(r => ({...r}));
-    fetchedSnapshot = rowsData.map(r => ({...r}));
   }
+  // Every endpoint failed — show the real reasons, not a generic message.
+  setStatus('idle', 'Live fetch failed — showing last known reading');
+  const box = document.getElementById('errBox');
+  box.style.display = 'block';
+  box.textContent = 'Could not reach the live API. Details: ' + attemptErrors.join(' | ') + '. Showing fallback data below — you can still edit values manually.';
+  rowsData = FALLBACK.map(r => ({...r}));
+  fetchedSnapshot = rowsData.map(r => ({...r}));
   update();
 }
 
