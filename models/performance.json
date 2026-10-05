@@ -1,0 +1,65 @@
+[
+  {
+    "mae": 5.36,
+    "rmse": 7.06,
+    "r2": 0.8586,
+    "mape": 16.44,
+    "model": "Linear Regression"
+  },
+  {
+    "mae": 8.34,
+    "rmse": 10.79,
+    "r2": 0.6699,
+    "mape": 23.21,
+    "model": "Decision Tree"
+  },
+  {
+    "mae": 5.76,
+    "rmse": 7.17,
+    "r2": 0.8543,
+    "mape": 16.51,
+    "model": "Random Forest"
+  },
+  {
+    "mae": 5.52,
+    "rmse": 6.84,
+    "r2": 0.8675,
+    "mape": 15.35,
+    "model": "Extra Trees"
+  },
+  {
+    "mae": 5.41,
+    "rmse": 6.63,
+    "r2": 0.8754,
+    "mape": 14.82,
+    "model": "Gradient Boosting"
+  },
+  {
+    "mae": 5.37,
+    "rmse": 6.62,
+    "r2": 0.8759,
+    "mape": 14.83,
+    "model": "XGBoost"
+  },
+  {
+    "mae": 5.4,
+    "rmse": 6.63,
+    "r2": 0.8752,
+    "mape": 14.8,
+    "model": "LightGBM"
+  },
+  {
+    "mae": 5.38,
+    "rmse": 6.54,
+    "r2": 0.8786,
+    "mape": 14.64,
+    "model": "CatBoost"
+  },
+  {
+    "mae": 5.25,
+    "rmse": 6.54,
+    "r2": 0.8789,
+    "mape": 15.08,
+    "model": "Ensemble (Stacking)"
+  }
+]

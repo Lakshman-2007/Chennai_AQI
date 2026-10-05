@@ -1,0 +1,48 @@
+{
+  "target_variable": "ground_pm25",
+  "feature_columns": [
+    "day_of_year",
+    "month",
+    "day_of_week",
+    "is_weekend",
+    "season_sin",
+    "season_cos",
+    "temperature",
+    "relative_humidity",
+    "wind_speed",
+    "wind_direction",
+    "wind_u",
+    "wind_v",
+    "surface_pressure",
+    "boundary_layer_height",
+    "precipitation",
+    "temp_humidity_index",
+    "ventilation_coefficient",
+    "satellite_no2",
+    "satellite_so2",
+    "satellite_co",
+    "satellite_o3",
+    "aerosol_index",
+    "latitude",
+    "longitude",
+    "pm25_lag_1d",
+    "pm25_rolling_7d_mean"
+  ],
+  "num_train_samples": 2548,
+  "num_test_samples": 637,
+  "ensemble_weights": {
+    "Linear Regression": 0.3566,
+    "Decision Tree": 0.0,
+    "Random Forest": 0.0,
+    "Extra Trees": 0.1734,
+    "Gradient Boosting": 0.017,
+    "XGBoost": 0.1005,
+    "LightGBM": 0.1957,
+    "CatBoost": 0.1569
+  },
+  "stations_count": 7,
+  "time_range": {
+    "start": "2025-01-01 00:00:00",
+    "end": "2026-03-31 00:00:00"
+  }
+}
