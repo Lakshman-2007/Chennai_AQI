@@ -34,6 +34,7 @@ interface ChennaiMapProps {
   showSatelliteOverlay?: boolean;
   onMapClick?: (lat: number, lon: number) => void;
   selectedLocation?: { latitude: number; longitude: number } | null;
+  compact?: boolean;
 }
 
 const MapController: React.FC<{
@@ -69,9 +70,11 @@ export const ChennaiMap: React.FC<ChennaiMapProps> = ({
   showWards = true,
   showSatelliteOverlay = false,
   onMapClick,
-  selectedLocation = null
+  selectedLocation = null,
+  compact = false
 }) => {
-  const chennaiCenter: [number, number] = [13.0427, 80.2407];
+  // Greater Chennai city-centre coordinates (latitude, longitude).
+  const chennaiCenter: [number, number] = [13.0827, 80.2707];
   const [mapTarget, setMapTarget] = useState<[number, number] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocalityItem[]>([]);
@@ -111,7 +114,7 @@ export const ChennaiMap: React.FC<ChennaiMapProps> = ({
   };
 
   return (
-    <div className="w-full h-full min-h-[520px] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative flex flex-col">
+    <div className={`w-full h-full ${compact ? 'min-h-0' : 'min-h-[520px]'} rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative flex flex-col`}>
       {/* Top Floating Search & Controls Bar */}
       <div className="absolute top-4 left-4 right-4 z-[1000] flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         {/* Search input with autocomplete */}
@@ -203,17 +206,50 @@ export const ChennaiMap: React.FC<ChennaiMapProps> = ({
               dashArray: '3'
             })}
             onEachFeature={(feature, layer) => {
-              layer.bindPopup(`
-                <div style="font-family: sans-serif; color: #0f172a; padding: 4px;">
-                  <strong style="font-size: 13px;">${feature.properties.name}</strong>
-                  <div style="font-size: 11px; color: #475569; margin-top: 2px;">
-                    Administrative Zone • Greater Chennai Corporation
-                  </div>
-                  <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
-                    CRS: ${feature.properties.crs}
-                  </div>
-                </div>
-              `);
+              const wardName = String(feature.properties?.name ?? feature.properties?.ward_name ?? feature.properties?.ward_no ?? 'Chennai area');
+              const wardStyle = { color: '#818CF8', weight: 1.5, opacity: 0.9, fillColor: '#6366F1', fillOpacity: 0.13 };
+              layer.on({
+                mouseover: (event: L.LeafletMouseEvent) => {
+                  const target = event.target as L.Path;
+                  target.setStyle({ weight: 2.5, color: '#FBBF24', fillColor: '#F59E0B', fillOpacity: 0.32 });
+                  if ('bringToFront' in target) target.bringToFront();
+                },
+                mouseout: (event: L.LeafletMouseEvent) => {
+                  (event.target as L.Path).setStyle(wardStyle);
+                },
+                click: (event: L.LeafletMouseEvent) => {
+                  const wardLayer = event.target as L.Layer & { getBounds?: () => L.LatLngBounds };
+                  const center = wardLayer.getBounds?.().getCenter() ?? event.latlng;
+                  const nearestStation = stations
+                    .filter((station) => station.current_aqi !== null && Number.isFinite(station.latitude) && Number.isFinite(station.longitude))
+                    .sort((a, b) =>
+                      L.latLng(center.lat, center.lng).distanceTo([a.latitude, a.longitude]) -
+                      L.latLng(center.lat, center.lng).distanceTo([b.latitude, b.longitude])
+                    )[0];
+                  const nearestGrid = gridPoints
+                    .filter((point) => point.predicted_aqi !== null && Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
+                    .sort((a, b) =>
+                      L.latLng(center.lat, center.lng).distanceTo([a.latitude, a.longitude]) -
+                      L.latLng(center.lat, center.lng).distanceTo([b.latitude, b.longitude])
+                    )[0];
+                  const aqi = nearestGrid?.predicted_aqi ?? nearestStation?.current_aqi;
+                  const category = nearestGrid?.category ?? nearestStation?.category ?? 'Unavailable';
+                  const sourceLabel = nearestGrid?.predicted_aqi !== null && nearestGrid?.predicted_aqi !== undefined
+                    ? 'Nearest model grid estimate'
+                    : nearestStation ? `Nearest station: ${nearestStation.name}` : 'No nearby AQI value available';
+                  const safeName = wardName.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
+                  layer.bindPopup(`
+                    <div style="font-family: sans-serif; color: #0f172a; min-width: 180px; padding: 4px;">
+                      <strong style="font-size: 14px;">${safeName}</strong>
+                      <div style="font-size: 12px; margin-top: 8px;">AQI: <strong>${aqi === null || aqi === undefined ? 'Unavailable' : Math.round(aqi)}</strong></div>
+                      <div style="font-size: 11px; color: #475569;">Category: ${category}</div>
+                      <div style="font-size: 10px; color: #64748b; margin-top: 5px;">${sourceLabel}</div>
+                      <div style="font-size: 10px; color: #64748b; margin-top: 3px;">Area-level indication, not an official ward measurement.</div>
+                    </div>
+                  `).openPopup(event.latlng);
+                }
+              });
+              layer.bindTooltip(wardName, { sticky: true, direction: 'top' });
             }}
           />
         )}

@@ -88,6 +88,23 @@ class ModelRegistry:
             self.ensemble = joblib.load(ens_path)
             self.pipeline = joblib.load(pipe_path)
 
+            # Compatibility bridge for preprocessing artifacts created with
+            # scikit-learn 1.7.x and loaded under 1.8.x. The imputer's internal
+            # dtype field was renamed; use the persisted fitted value only when
+            # the runtime field is absent. The project still pins 1.7.2 as its
+            # canonical/reproducible runtime in requirements.txt and requirements.lock.
+            imputer = getattr(self.pipeline, "imputer", None)
+            if (
+                imputer is not None
+                and hasattr(imputer, "_fit_dtype")
+                and not hasattr(imputer, "_fill_dtype")
+            ):
+                imputer._fill_dtype = imputer._fit_dtype
+                logger.warning(
+                    "Applied SimpleImputer compatibility bridge for a model artifact "
+                    "loaded under a different scikit-learn version; use pinned dependencies."
+                )
+
             if not hasattr(self.ensemble, "predict") or not hasattr(self.pipeline, "transform"):
                 self.internal_error_log = "Loaded core artifacts do not expose required predict/transform interfaces."
                 logger.error(self.internal_error_log)

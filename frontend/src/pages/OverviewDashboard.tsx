@@ -16,6 +16,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onNavigate
   const [gridPoints, setGridPoints] = useState<PredictionPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapView, setMapView] = useState<'interactive' | 'ward-snapshot'>('interactive');
 
   const loadData = async () => {
     setLoading(true);
@@ -182,7 +183,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onNavigate
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Map Preview Container */}
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center space-x-2">
               <MapPin className="w-4 h-4 text-indigo-400" />
               <h3 className="text-base font-bold text-white">Live Chennai Monitoring Map Preview</h3>
@@ -195,13 +196,47 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onNavigate
             </button>
           </div>
 
-          <div className="h-[360px] w-full rounded-2xl overflow-hidden border border-slate-800">
-            <ChennaiMap
-              stations={stations}
-              gridPoints={gridPoints}
-              showHotspots={false}
-              showWards={true}
-            />
+          <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Map preview mode">
+            <button
+              type="button"
+              onClick={() => setMapView('interactive')}
+              aria-pressed={mapView === 'interactive'}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${mapView === 'interactive' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-indigo-500'}`}
+            >
+              Interactive map
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapView('ward-snapshot')}
+              aria-pressed={mapView === 'ward-snapshot'}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${mapView === 'ward-snapshot' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-indigo-500'}`}
+            >
+              Ward-level AQI snapshot
+            </button>
+          </div>
+
+          <div className="h-[360px] w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+            {mapView === 'interactive' ? (
+              <ChennaiMap
+                stations={stations}
+                gridPoints={gridPoints}
+                showHotspots={false}
+                showWards={true}
+                compact={true}
+              />
+            ) : (
+              <div className="h-full w-full flex flex-col">
+                <img
+                  src="/images/chennai-ward-aqi-snapshot.png"
+                  alt="Chennai ward-level AQI interpolation snapshot with latitude and longitude axes"
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                />
+                <p className="px-3 py-2 text-[11px] text-amber-200 bg-slate-900 border-t border-slate-800">
+                  Reference snapshot supplied for the project; its displayed station values are not a live feed. Map extent is approximately 12.85–13.23° N and 80.14–80.33° E.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
