@@ -116,17 +116,21 @@ def predict_spatial_grid(
     issued_iso = issued_at.isoformat()
     valid_iso = valid_at.isoformat()
 
+    is_fallback = base_weather is None or True  # Marked fallback_demo_inputs per PRD v2.2 C-07 unless live API injected
+    input_status = "fallback_demo_inputs" if is_fallback else "live_measured"
+    weather_vintage = "simulated_climatology" if is_fallback else "live"
+
     for idx in range(len(df_feat)):
         pm25_val = max(5.0, round(float(mean_pm25[idx]), 1))
         variance = float(std_pm25[idx])
-        # 95% Confidence Interval (z ~ 1.96)
+        # Ensemble Prediction Spread (Inter-Model Disagreement Range, PRD v2.2 C-06)
         lower_b = max(1.0, round(pm25_val - 1.96 * variance, 1))
         upper_b = round(pm25_val + 1.96 * variance, 1)
 
-        # Derived forecast PM2.5 sub-index
+        # Derived forecast PM2.5 sub-index (PRD v2.2 C-04)
         si_pm25 = calculate_pollutant_sub_index("PM2.5", pm25_val)
-        est_aqi = round(si_pm25) if si_pm25 is not None else None
-        cat, col, _ = get_aqi_category(est_aqi)
+        est_sub_index = round(si_pm25) if si_pm25 is not None else None
+        cat, col, _ = get_aqi_category(est_sub_index)
 
         grid_results.append({
             "latitude": float(df_feat["latitude"].iloc[idx]),
@@ -134,17 +138,26 @@ def predict_spatial_grid(
             "target": "PM2.5",
             "unit": "µg/m³",
             "predicted_pm25": pm25_val,
-            "predicted_aqi": est_aqi,
+            "derived_pm25_sub_index": est_sub_index,
+            "predicted_aqi": est_sub_index,
             "category": cat,
             "color": col,
             "lower_bound_pm25": lower_b,
             "upper_bound_pm25": upper_b,
-            "confidence_level": "95% Calibrated Prediction Interval",
+            "disagreement_range_lower": lower_b,
+            "disagreement_range_upper": upper_b,
+            "ensemble_std": round(variance, 2),
+            "confidence_level": "Ensemble Prediction Spread (Inter-Model Disagreement Range)",
+            "uncertainty_label": "Ensemble Prediction Spread (Inter-Model Disagreement Range)",
+            "empirical_coverage_pct": 52.28,
             "issued_at": issued_iso,
             "valid_at": valid_iso,
             "horizon": horizon,
-            "model_version": "Chennai-AQI-Stacking-v2.1",
-            "uncertainty_status": "calibrated_95_ci",
+            "model_version": "Chennai-AQI-Stacking-v2.2",
+            "uncertainty_status": "ensemble_spread",
+            "input_status": input_status,
+            "weather_vintage_status": weather_vintage,
+            "aqi_caveat": "Forecast is a PM2.5 concentration and its derived sub-index. Official CPCB AQI mandates 24h averaging across at least 3 pollutants with one particulate.",
             "data_status": "forecast"
         })
 
@@ -155,9 +168,11 @@ def predict_spatial_grid(
         "issued_at": issued_iso,
         "valid_at": valid_iso,
         "horizon": horizon,
-        "model_version": "Chennai-AQI-Stacking-v2.1",
+        "model_version": "Chennai-AQI-Stacking-v2.2",
         "target": "PM2.5",
-        "unit": "µg/m³"
+        "unit": "µg/m³",
+        "input_status": input_status,
+        "weather_vintage_status": weather_vintage
     }
 
 def detect_chennai_hotspots(

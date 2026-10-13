@@ -122,16 +122,18 @@ class AQIExplainer:
 
         narrative = self._generate_narrative(positive_contributors, negative_contributors)
 
-        pred_pm25 = max(5.0, round(expected_value + sum(c["impact"] for c in positive_contributors + negative_contributors), 1))
+        # Preserves strict additive consistency: E[f(x)] + sum(phi_i) == f(x) (PRD v2.2 C-09)
+        pred_pm25 = round(expected_value + sum(c["impact"] for c in positive_contributors + negative_contributors), 2)
 
         return {
             "base_value": round(expected_value, 2),
             "prediction_pm25": pred_pm25,
             "target": "PM2.5",
             "unit": "µg/m³",
-            "model_version": "Chennai-AQI-Stacking-v2.1",
-            "positive_contributors": positive_contributors[:6],
-            "negative_contributors": negative_contributors[:6],
+            "model_version": "Chennai-AQI-Stacking-v2.2",
+            "surrogate_model": "XGBoost Component of Stacking Ensemble",
+            "positive_contributors": positive_contributors,
+            "negative_contributors": negative_contributors,
             "narrative": narrative,
             "disclaimer": "Feature attributions reflect statistical model associations, not direct physical causality."
         }

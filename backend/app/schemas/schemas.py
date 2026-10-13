@@ -3,8 +3,19 @@ Pydantic Schemas for Chennai Air Quality Framework API Contracts.
 Fully compliant with Pydantic V2 and PRD Sections 10, 11, and 21.8.
 """
 
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Dict, List, Optional, Any, Literal
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+VALID_HORIZONS = {"+1h", "+6h", "+12h", "+24h", "+48h"}
+
+def normalize_horizon(v: Any) -> str:
+    if isinstance(v, str):
+        norm = v.strip()
+        if not norm.startswith("+") and f"+{norm}" in VALID_HORIZONS:
+            norm = f"+{norm}"
+        if norm in VALID_HORIZONS:
+            return norm
+    raise ValueError(f"Invalid forecast horizon '{v}'. Allowed horizons are: {sorted(list(VALID_HORIZONS))}")
 
 class Location(BaseModel):
     latitude: float = Field(ge=12.5, le=13.5, description="Latitude in Chennai bounding box")
@@ -13,7 +24,12 @@ class Location(BaseModel):
 class ForecastRequest(BaseModel):
     latitude: float = Field(ge=12.5, le=13.5, description="Latitude in Chennai region")
     longitude: float = Field(ge=79.8, le=80.6, description="Longitude in Chennai region")
-    horizon: str = Field(default="+24h", description="Forecast horizon (+1h, +6h, +12h, +24h)")
+    horizon: str = Field(default="+24h", description="Forecast horizon (+1h, +6h, +12h, +24h, +48h)")
+
+    @field_validator("horizon", mode="before")
+    @classmethod
+    def check_horizon(cls, v: Any) -> str:
+        return normalize_horizon(v)
 
 class AirQualityOverview(BaseModel):
     current_aqi: Optional[float]
@@ -57,17 +73,26 @@ class PredictionPoint(BaseModel):
     target: str = "PM2.5"
     unit: str = "µg/m³"
     predicted_pm25: float
-    predicted_aqi: Optional[float]
+    derived_pm25_sub_index: Optional[float] = None
+    predicted_aqi: Optional[float] = None
     category: str
     color: str
     lower_bound_pm25: float
     upper_bound_pm25: float
-    confidence_level: str = "95% Calibrated Prediction Interval"
+    disagreement_range_lower: float
+    disagreement_range_upper: float
+    ensemble_std: float = 0.0
+    confidence_level: str = "Ensemble Prediction Spread (Inter-Model Disagreement Range)"
+    uncertainty_label: str = "Ensemble Prediction Spread (Inter-Model Disagreement Range)"
+    empirical_coverage_pct: Optional[float] = None
     issued_at: str
     valid_at: str
     horizon: str = "+24h"
-    model_version: str = "Chennai-AQI-Stacking-v2.1"
-    uncertainty_status: str = "calibrated_95_ci"
+    model_version: str = "Chennai-AQI-Stacking-v2.2"
+    uncertainty_status: str = "ensemble_spread"
+    input_status: str = "fallback_demo_inputs"
+    weather_vintage_status: str = "simulated_climatology"
+    aqi_caveat: str = "Forecast is a PM2.5 concentration and its derived sub-index. Official CPCB AQI mandates 24h averaging across at least 3 pollutants with one particulate."
     data_status: str = "forecast"
 
 class SpatialGridResponse(BaseModel):
@@ -79,9 +104,11 @@ class SpatialGridResponse(BaseModel):
     issued_at: str
     valid_at: str
     horizon: str = "+24h"
-    model_version: str = "Chennai-AQI-Stacking-v2.1"
+    model_version: str = "Chennai-AQI-Stacking-v2.2"
     target: str = "PM2.5"
     unit: str = "µg/m³"
+    input_status: str = "fallback_demo_inputs"
+    weather_vintage_status: str = "simulated_climatology"
 
 class HotspotInfo(BaseModel):
     cluster_id: int
@@ -139,7 +166,8 @@ class LocalExplanationResponse(BaseModel):
     prediction_pm25: float
     target: str = "PM2.5"
     unit: str = "µg/m³"
-    model_version: str = "Chennai-AQI-Stacking-v2.1"
+    model_version: str = "Chennai-AQI-Stacking-v2.2"
+    surrogate_model: str = "XGBoost Component of Stacking Ensemble"
     positive_contributors: List[FeatureContribution]
     negative_contributors: List[FeatureContribution]
     narrative: str

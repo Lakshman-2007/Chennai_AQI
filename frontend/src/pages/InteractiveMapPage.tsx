@@ -242,7 +242,8 @@ export const InteractiveMapPage: React.FC = () => {
                     </div>
                     <div className="mt-2 flex items-baseline justify-between">
                       <div className="text-2xl font-black" style={{ color: selectedPrediction.color }}>
-                        {selectedPrediction.predicted_aqi ?? 'N/A'} <span className="text-xs font-bold">AQI</span>
+                        {selectedPrediction.derived_pm25_sub_index ?? selectedPrediction.predicted_aqi ?? 'N/A'}{' '}
+                        <span className="text-xs font-bold">Sub-Index</span>
                       </div>
                       <span
                         className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -256,17 +257,23 @@ export const InteractiveMapPage: React.FC = () => {
                   {/* Target & Uncertainty */}
                   <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1.5 text-xs">
                     <div className="flex justify-between text-slate-400">
-                      <span>Target:</span>
+                      <span>Forecast PM2.5:</span>
                       <span className="font-semibold text-slate-200">
                         {selectedPrediction.predicted_pm25} {selectedPrediction.unit}
                       </span>
                     </div>
                     <div className="flex justify-between text-slate-400">
-                      <span>95% Calibrated CI:</span>
+                      <span>Ensemble Disagreement Spread:</span>
                       <span className="font-mono text-slate-300">
                         [{selectedPrediction.lower_bound_pm25} - {selectedPrediction.upper_bound_pm25}] {selectedPrediction.unit}
                       </span>
                     </div>
+                    {selectedPrediction.empirical_coverage_pct && (
+                      <div className="flex justify-between text-slate-400 text-[10px]">
+                        <span>Holdout Coverage:</span>
+                        <span className="text-slate-300">{selectedPrediction.empirical_coverage_pct}%</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-slate-400">
                       <span>Horizon:</span>
                       <span className="font-bold text-indigo-400">{selectedPrediction.horizon}</span>
@@ -276,7 +283,12 @@ export const InteractiveMapPage: React.FC = () => {
                   {/* Top SHAP Drivers */}
                   {selectedExplanation && selectedExplanation.positive_contributors.length > 0 && (
                     <div className="space-y-2">
-                      <div className="text-xs font-bold text-slate-300">Top Statistical Drivers (SHAP)</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold text-slate-300">Top Statistical Drivers (SHAP)</div>
+                        {selectedExplanation.surrogate_model && (
+                          <div className="text-[9px] text-slate-500 font-mono">Surrogate: XGBoost</div>
+                        )}
+                      </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                         {selectedExplanation.positive_contributors.slice(0, 3).map((c, i) => (
                           <div key={i} className="p-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px]">

@@ -67,17 +67,26 @@ export interface PredictionPoint {
   target: string;
   unit: string;
   predicted_pm25: number;
+  derived_pm25_sub_index?: number | null;
   predicted_aqi: number | null;
   category: string;
   color: string;
   lower_bound_pm25: number;
   upper_bound_pm25: number;
+  disagreement_range_lower?: number;
+  disagreement_range_upper?: number;
+  ensemble_std?: number;
   confidence_level: string;
+  uncertainty_label?: string;
+  empirical_coverage_pct?: number | null;
   issued_at: string;
   valid_at: string;
   horizon: string;
   model_version: string;
   uncertainty_status: string;
+  input_status?: string;
+  weather_vintage_status?: string;
+  aqi_caveat?: string;
   data_status: string;
 }
 
@@ -96,6 +105,8 @@ export interface SpatialGridResponse {
   model_version: string;
   target: string;
   unit: string;
+  input_status?: string;
+  weather_vintage_status?: string;
 }
 
 export interface HotspotInfo {
@@ -124,6 +135,7 @@ export interface LocalExplanationResponse {
   target: string;
   unit: string;
   model_version: string;
+  surrogate_model?: string;
   positive_contributors: FeatureImpact[];
   negative_contributors: FeatureImpact[];
   narrative: string;

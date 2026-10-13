@@ -10,6 +10,7 @@ from backend.app.schemas.schemas import LocalExplanationResponse, Location
 from backend.app.ml.explainer import AQIExplainer
 from backend.app.ml.feature_engineering import engineer_features
 from backend.app.ml.model_registry import ModelRegistry
+from backend.app.exceptions import ModelNotReadyException
 
 router = APIRouter(prefix="/api/explain", tags=["Explainable AI"])
 
@@ -22,7 +23,7 @@ def get_global_explanations():
     """
     registry = ModelRegistry.get_instance()
     if not registry.is_ready or registry.xgboost is None:
-        raise HTTPException(status_code=503, detail="XAI explainer model unavailable.")
+        raise ModelNotReadyException("XAI explainer model unavailable. Model artifacts are not ready.")
 
     explainer = AQIExplainer(model=registry.xgboost, pipeline=registry.pipeline)
 
@@ -45,7 +46,7 @@ def get_local_explanation(loc: Location):
     """
     registry = ModelRegistry.get_instance()
     if not registry.is_ready or registry.xgboost is None:
-        raise HTTPException(status_code=503, detail="XAI explainer model unavailable.")
+        raise ModelNotReadyException("XAI explainer model unavailable. Model artifacts are not ready.")
 
     explainer = AQIExplainer(model=registry.xgboost, pipeline=registry.pipeline)
 

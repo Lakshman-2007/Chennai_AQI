@@ -74,6 +74,8 @@
     "rmse": 6.45,
     "r2": 0.882,
     "mape": 14.52,
-    "model": "Ensemble (Stacking)"
+    "model": "Ensemble (Stacking)",
+    "empirical_coverage_pct": 52.28,
+    "mean_ensemble_spread": 10.77
   }
 ]

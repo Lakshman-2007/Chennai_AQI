@@ -133,10 +133,14 @@ def train_aqi_models(
     # 1. Feature Engineering
     df_feat = engineer_features(df, is_training=True)
 
-    # 2. Strict Chronological Holdout (80% train, 20% untouched holdout)
-    split_idx = int(len(df_feat) * 0.8)
-    train_df = df_feat.iloc[:split_idx].copy()
-    test_df = df_feat.iloc[split_idx:].copy()
+    # 2. Strict Chronological Timestamp-Grouped Holdout (PRD v2.2 C-05)
+    # Sorting unique timestamps ensures no stations at the same time slice are split between partitions
+    unique_timestamps = np.sort(df_feat["timestamp"].drop_duplicates().values)
+    split_idx = int(len(unique_timestamps) * 0.8)
+    split_timestamp = unique_timestamps[split_idx]
+
+    train_df = df_feat[df_feat["timestamp"] < split_timestamp].copy()
+    test_df = df_feat[df_feat["timestamp"] >= split_timestamp].copy()
 
     # Preprocessing pipeline fit STRICTLY on train set
     pipeline = PreprocessingPipeline(feature_cols=FEATURE_COLUMNS)
@@ -192,11 +196,19 @@ def train_aqi_models(
     ensemble = WalkForwardStackingEnsemble(base_models=trained_models)
     ensemble.fit_oof_walk_forward(X_train, y_train, n_splits=5)
 
-    y_ensemble_pred = ensemble.predict(X_test)
+    y_ensemble_pred, std_ensemble_pred = ensemble.predict_with_std(X_test)
     ens_metrics = compute_metrics(y_test, y_ensemble_pred)
     ens_metrics["model"] = "Ensemble (Stacking)"
+
+    # Empirical holdout coverage calculation for Ensemble Prediction Spread (PRD v2.2 C-06)
+    lower_bounds = np.maximum(0.0, y_ensemble_pred - 1.96 * std_ensemble_pred)
+    upper_bounds = y_ensemble_pred + 1.96 * std_ensemble_pred
+    is_covered = (y_test >= lower_bounds) & (y_test <= upper_bounds)
+    empirical_coverage_pct = round(float(np.mean(is_covered) * 100.0), 2)
+    ens_metrics["empirical_coverage_pct"] = empirical_coverage_pct
+    ens_metrics["mean_ensemble_spread"] = round(float(np.mean(upper_bounds - lower_bounds)), 2)
     comparison_results.append(ens_metrics)
-    print(f"Model: Ensemble (Stacking)    | R²: {ens_metrics['r2']:.4f} | RMSE: {ens_metrics['rmse']:.2f} | MAE: {ens_metrics['mae']:.2f}")
+    print(f"Model: Ensemble (Stacking)    | R²: {ens_metrics['r2']:.4f} | RMSE: {ens_metrics['rmse']:.2f} | MAE: {ens_metrics['mae']:.2f} | Empirical Coverage: {empirical_coverage_pct}%")
 
     # Calculate Improvement over Persistence Baseline
     baseline_rmse = pers_metrics["rmse"]
@@ -210,11 +222,13 @@ def train_aqi_models(
     joblib.dump(pipeline, os.path.join(output_dir, "pipeline.pkl"))
 
     metadata = {
-        "model_id": "Chennai-AQI-Stacking-v2.1",
+        "model_id": "Chennai-AQI-Stacking-v2.2",
         "target_variable": target_col,
         "target_unit": "µg/m³",
         "forecast_horizon": "+24h",
-        "validation_strategy": "Chronological Holdout (20%) + 5-Fold Walk-Forward TimeSeriesSplit",
+        "validation_strategy": "Timestamp-Grouped Chronological Holdout (20%) + 5-Fold Walk-Forward TimeSeriesSplit",
+        "uncertainty_metric": "Ensemble Prediction Spread (Inter-Model Disagreement Range)",
+        "empirical_coverage_pct": empirical_coverage_pct,
         "feature_columns": FEATURE_COLUMNS,
         "num_train_samples": len(train_df),
         "num_test_samples": len(test_df),
@@ -228,6 +242,7 @@ def train_aqi_models(
         "ensemble_rmse": model_rmse,
         "rmse_improvement_pct": rmse_improvement_pct,
         "leakage_safeguards": [
+            "Timestamp-grouped chronological train/holdout split preventing multi-station temporal leakage (C-05)",
             "Strict TimeSeriesSplit expanding window (no random shuffling)",
             "Holdout set reserved untouched prior to meta-learner fitting",
             "Preprocessing pipeline fit strictly on training partition"
@@ -238,7 +253,7 @@ def train_aqi_models(
         "schema_version": "1.0",
         "model_details": {
             "name": "Chennai Air Quality PM2.5 Walk-Forward Stacking Ensemble",
-            "version": "2.1.0",
+            "version": "2.2.0",
             "type": "Supervised Regression / Stacking Ensemble",
             "target": "PM2.5 Surface Concentration (µg/m³)",
             "forecast_horizon": "+24h prospective interval",
@@ -254,6 +269,7 @@ def train_aqi_models(
             "holdout_date_start": str(test_df["timestamp"].min()),
             "holdout_date_end": str(test_df["timestamp"].max()),
             "metrics": ens_metrics,
+            "empirical_holdout_coverage_pct": empirical_coverage_pct,
             "baseline_comparison": {
                 "persistence_baseline_rmse": baseline_rmse,
                 "seasonal_naive_rmse": seas_metrics["rmse"],
@@ -262,7 +278,7 @@ def train_aqi_models(
             }
         },
         "ethical_considerations": {
-            "transparency": "Predictions are accompanied by SHAP feature attributions and 95% confidence intervals.",
+            "transparency": f"Predictions are accompanied by SHAP feature attributions (via XGBoost surrogate component) and Ensemble Prediction Spread (Inter-Model Disagreement Range) with empirical holdout coverage measured at {empirical_coverage_pct}%.",
             "health_advice": "Non-diagnostic; informs public awareness without medical assertions."
         }
     }

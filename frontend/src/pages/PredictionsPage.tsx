@@ -152,17 +152,28 @@ export const PredictionsPage: React.FC = () => {
                     className="text-xs font-bold px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: `${customPrediction.color}25`, color: customPrediction.color }}
                   >
-                    Derived AQI: ~{customPrediction.predicted_aqi} ({customPrediction.category})
+                    Derived Sub-Index: ~{customPrediction.derived_pm25_sub_index ?? customPrediction.predicted_aqi} ({customPrediction.category})
                   </span>
                 </div>
               </div>
 
-              {/* 95% Confidence Interval */}
+              {/* Ensemble Prediction Spread */}
               <div className="p-2.5 bg-slate-900 rounded-xl text-xs space-y-1">
-                <div className="text-[11px] text-slate-400 font-semibold">95% Calibrated Confidence Interval:</div>
+                <div className="text-[11px] text-slate-400 font-semibold">
+                  Ensemble Spread (Inter-Model Disagreement):
+                </div>
                 <div className="font-mono font-bold text-sky-400 text-xs">
                   [{customPrediction.lower_bound_pm25} — {customPrediction.upper_bound_pm25}] {customPrediction.unit}
                 </div>
+                {customPrediction.empirical_coverage_pct && (
+                  <div className="text-[10px] text-slate-400">
+                    Empirical Holdout Coverage: {customPrediction.empirical_coverage_pct}%
+                  </div>
+                )}
+              </div>
+
+              <div className="text-[10px] text-slate-500 italic">
+                Note: Point PM2.5 concentration forecast. Regulatory CPCB AQI requires 24h averaging over ≥3 pollutants with particulate.
               </div>
 
               <div className="space-y-1 text-[10px] text-slate-400 border-t border-slate-800/80 pt-2 font-mono">

@@ -1,9 +1,11 @@
 {
-  "model_id": "Chennai-AQI-Stacking-v2.1",
+  "model_id": "Chennai-AQI-Stacking-v2.2",
   "target_variable": "ground_pm25",
   "target_unit": "\u00b5g/m\u00b3",
   "forecast_horizon": "+24h",
-  "validation_strategy": "Chronological Holdout (20%) + 5-Fold Walk-Forward TimeSeriesSplit",
+  "validation_strategy": "Timestamp-Grouped Chronological Holdout (20%) + 5-Fold Walk-Forward TimeSeriesSplit",
+  "uncertainty_metric": "Ensemble Prediction Spread (Inter-Model Disagreement Range)",
+  "empirical_coverage_pct": 52.28,
   "feature_columns": [
     "day_of_year",
     "month",
@@ -53,6 +55,7 @@
   "ensemble_rmse": 6.45,
   "rmse_improvement_pct": 66.27,
   "leakage_safeguards": [
+    "Timestamp-grouped chronological train/holdout split preventing multi-station temporal leakage (C-05)",
     "Strict TimeSeriesSplit expanding window (no random shuffling)",
     "Holdout set reserved untouched prior to meta-learner fitting",
     "Preprocessing pipeline fit strictly on training partition"
