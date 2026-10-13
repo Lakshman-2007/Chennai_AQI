@@ -121,6 +121,10 @@ class HotspotInfo(BaseModel):
     point_count: int
     severity: str
     method: str = "DBSCAN Spatial Density Clustering (eps=0.035, min_samples=3)"
+    layer_type: str = "forecast"
+    source_time_range: Optional[Dict[str, str]] = None
+    spatial_reference: str = "EPSG:4326"
+    data_mode: str = "demo"
 
 class DataSourceInfo(BaseModel):
     name: str

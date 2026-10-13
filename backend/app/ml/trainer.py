@@ -246,19 +246,41 @@ def train_aqi_models(
             "Strict TimeSeriesSplit expanding window (no random shuffling)",
             "Holdout set reserved untouched prior to meta-learner fitting",
             "Preprocessing pipeline fit strictly on training partition"
-        ]
+        ],
+        "training_environment": {
+            "python_version": "3.13.7",
+            "scikit_learn": "1.7.2",
+            "joblib": "1.5.2",
+            "xgboost": "3.4.1",
+            "lightgbm": "4.7.0",
+            "catboost": "1.2.10",
+            "shap": "0.52.0",
+            "numpy": "2.2.6",
+            "pandas": "2.3.2"
+        }
     }
 
     model_card = {
         "schema_version": "1.0",
         "model_details": {
             "name": "Chennai Air Quality PM2.5 Walk-Forward Stacking Ensemble",
-            "version": "2.2.0",
+            "version": "2.3.0",
             "type": "Supervised Regression / Stacking Ensemble",
             "target": "PM2.5 Surface Concentration (µg/m³)",
             "forecast_horizon": "+24h prospective interval",
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "license": "MIT"
+            "license": "MIT",
+            "training_environment": {
+                "python_version": "3.13.7",
+                "scikit_learn": "1.7.2",
+                "joblib": "1.5.2",
+                "xgboost": "3.4.1",
+                "lightgbm": "4.7.0",
+                "catboost": "1.2.10",
+                "shap": "0.52.0",
+                "numpy": "2.2.6",
+                "pandas": "2.3.2"
+            }
         },
         "intended_use": {
             "primary_use": "Predicting next-day PM2.5 concentrations across Chennai monitoring stations and spatial grids.",

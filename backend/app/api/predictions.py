@@ -28,8 +28,11 @@ def get_spatial_prediction_map(
         raise HTTPException(status_code=422, detail=str(e))
 
     registry = ModelRegistry.get_instance()
-    if not registry.is_ready:
-        raise ModelNotReadyException(f"Prediction service unavailable: {registry.error_message}")
+    if not registry.core_model_ready:
+        raise ModelNotReadyException(
+            detail=f"Prediction service unavailable: {registry.safe_error_message or 'model artifacts not ready.'}",
+            code="MODEL_NOT_READY"
+        )
 
     grid_df = generate_chennai_spatial_grid(grid_resolution=resolution)
 
@@ -47,11 +50,14 @@ def get_spatial_prediction_map(
 def predict_location_point(req: ForecastRequest):
     """
     Generate ML prediction and Ensemble Prediction Spread for a coordinate in Chennai.
-    Conforms to PRD v2.2 C-01, C-04, C-06, C-11. Guarantees valid_at > issued_at.
+    Conforms to PRD v2.3 Section 4.2. Guarantees valid_at > issued_at.
     """
     registry = ModelRegistry.get_instance()
-    if not registry.is_ready:
-        raise ModelNotReadyException(f"Prediction service unavailable: {registry.error_message}")
+    if not registry.core_model_ready:
+        raise ModelNotReadyException(
+            detail=f"Prediction service unavailable: {registry.safe_error_message or 'model artifacts not ready.'}",
+            code="MODEL_NOT_READY"
+        )
 
     now_utc = datetime.now(timezone.utc)
     single_df = pd.DataFrame([{

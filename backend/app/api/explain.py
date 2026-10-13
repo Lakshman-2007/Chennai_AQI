@@ -10,7 +10,7 @@ from backend.app.schemas.schemas import LocalExplanationResponse, Location
 from backend.app.ml.explainer import AQIExplainer
 from backend.app.ml.feature_engineering import engineer_features
 from backend.app.ml.model_registry import ModelRegistry
-from backend.app.exceptions import ModelNotReadyException
+from backend.app.exceptions import ExplainerNotReadyException
 
 router = APIRouter(prefix="/api/explain", tags=["Explainable AI"])
 
@@ -20,10 +20,11 @@ DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", 
 def get_global_explanations():
     """
     Get global SHAP feature importances for all predictive variables across Chennai.
+    Conforms to PRD v2.3 Section 4.5.
     """
     registry = ModelRegistry.get_instance()
-    if not registry.is_ready or registry.xgboost is None:
-        raise ModelNotReadyException("XAI explainer model unavailable. Model artifacts are not ready.")
+    if not registry.explainer_ready or registry.xgboost is None:
+        raise ExplainerNotReadyException("XAI explainer model unavailable. Explainer artifact is not ready.", code="EXPLAINER_NOT_READY")
 
     explainer = AQIExplainer(model=registry.xgboost, pipeline=registry.pipeline)
 
@@ -36,6 +37,7 @@ def get_global_explanations():
     importances = explainer.get_global_feature_importance(df_feat)
     return {
         "global_importance": importances,
+        "surrogate_model": "XGBoost Component of Stacking Ensemble",
         "disclaimer": "Feature importances reflect model variance associations, not physical causality."
     }
 
@@ -43,10 +45,11 @@ def get_global_explanations():
 def get_local_explanation(loc: Location):
     """
     Get local SHAP explanation breakdown and plain-English narrative for a given location.
+    Conforms to PRD v2.3 Section 4.6.
     """
     registry = ModelRegistry.get_instance()
-    if not registry.is_ready or registry.xgboost is None:
-        raise ModelNotReadyException("XAI explainer model unavailable. Model artifacts are not ready.")
+    if not registry.explainer_ready or registry.xgboost is None:
+        raise ExplainerNotReadyException("XAI explainer model unavailable. Explainer artifact is not ready.", code="EXPLAINER_NOT_READY")
 
     explainer = AQIExplainer(model=registry.xgboost, pipeline=registry.pipeline)
 

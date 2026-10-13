@@ -179,12 +179,19 @@ def detect_chennai_hotspots(
     grid_points: List[Dict[str, Any]],
     threshold_pm25: float = 55.0,
     eps: float = 0.035,
-    min_samples: int = 3
+    min_samples: int = 3,
+    layer_type: str = "forecast",
+    data_mode: str = "demo",
+    source_time_range: Optional[Dict[str, str]] = None
 ) -> List[Dict[str, Any]]:
     """
     Detects persistent spatial pollution clusters in Chennai using DBSCAN clustering.
+    Supports both forecast spatial grids and observed ground station points (PRD v2.3 Section 4.4).
     """
-    high_pollution_pts = [p for p in grid_points if p["predicted_pm25"] >= threshold_pm25]
+    def _extract_pm25(p: Dict[str, Any]) -> float:
+        return float(p.get("predicted_pm25", p.get("current_pm25", 0.0)))
+
+    high_pollution_pts = [p for p in grid_points if _extract_pm25(p) >= threshold_pm25]
 
     if len(high_pollution_pts) < min_samples:
         return []
@@ -204,7 +211,7 @@ def detect_chennai_hotspots(
 
         center_lat = round(float(np.mean([p["latitude"] for p in cluster_pts])), 4)
         center_lon = round(float(np.mean([p["longitude"] for p in cluster_pts])), 4)
-        mean_pm25 = round(float(np.mean([p["predicted_pm25"] for p in cluster_pts])), 1)
+        mean_pm25 = round(float(np.mean([_extract_pm25(p) for p in cluster_pts])), 1)
 
         si_pm25 = calculate_pollutant_sub_index("PM2.5", mean_pm25)
         est_aqi = round(si_pm25) if si_pm25 is not None else 150.0
@@ -222,7 +229,11 @@ def detect_chennai_hotspots(
             "color": col,
             "point_count": len(cluster_pts),
             "severity": severity,
-            "method": f"DBSCAN Spatial Clustering (eps={eps}, min_samples={min_samples})"
+            "method": f"DBSCAN Spatial Clustering (eps={eps}, min_samples={min_samples})",
+            "layer_type": layer_type,
+            "source_time_range": source_time_range,
+            "spatial_reference": "EPSG:4326",
+            "data_mode": data_mode
         })
 
     return hotspots

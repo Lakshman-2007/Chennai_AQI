@@ -120,6 +120,10 @@ export interface HotspotInfo {
   point_count: number;
   severity: string;
   method: string;
+  layer_type?: string;
+  source_time_range?: { start?: string; end?: string };
+  spatial_reference?: string;
+  data_mode?: string;
 }
 
 export interface FeatureImpact {

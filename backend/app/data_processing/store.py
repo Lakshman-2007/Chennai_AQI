@@ -198,6 +198,10 @@ class DataStore:
 
         return stations_list
 
+    def get_latest_stations(self) -> List[Dict[str, Any]]:
+        """Alias for get_stations() to support observational station queries."""
+        return self.get_stations()
+
     def get_station_detail(self, station_id: str) -> Optional[Dict[str, Any]]:
         if self._df is None or self._df.empty:
             return None
