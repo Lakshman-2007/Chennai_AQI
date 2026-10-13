@@ -7,12 +7,20 @@ import type {
   PredictionPoint,
   HotspotInfo,
   LocalExplanationResponse,
+  GlobalImportanceItem,
   ModelPerformanceResponse,
   DataSourceInfo,
-  DataQualityReport
+  LocalityItem,
+  ImportManifest,
+  SourceHealthItem
 } from '../types/api';
 
 const API_BASE_URL = '/api';
+
+export const fetchHealth = async () => {
+  const res = await axios.get(`${API_BASE_URL}/health`);
+  return res.data;
+};
 
 export const fetchOverview = async (): Promise<AirQualityOverview> => {
   const res = await axios.get(`${API_BASE_URL}/overview`);
@@ -31,34 +39,34 @@ export const fetchStationDetails = async (stationId: string): Promise<StationDet
 
 export const fetchHistoricalTrends = async (days: number = 30, stationId?: string) => {
   const params: Record<string, any> = { days };
-  if (stationId) params.station_id = stationId;
+  if (stationId && stationId !== 'all') params.station_id = stationId;
   const res = await axios.get(`${API_BASE_URL}/air-quality/history`, { params });
   return res.data;
 };
 
-export const fetchPredictionMap = async (resolution: number = 25, targetDate?: string): Promise<SpatialGridResponse> => {
-  const params: Record<string, any> = { resolution };
-  if (targetDate) params.target_date = targetDate;
+export const fetchPredictionMap = async (resolution: number = 25, horizon: string = '+24h'): Promise<SpatialGridResponse> => {
+  const params: Record<string, any> = { resolution, horizon };
   const res = await axios.get(`${API_BASE_URL}/predictions/map`, { params });
   return res.data;
 };
 
-export const fetchPointPrediction = async (lat: number, lon: number): Promise<PredictionPoint> => {
+export const fetchPointPrediction = async (lat: number, lon: number, horizon: string = '+24h'): Promise<PredictionPoint> => {
   const res = await axios.post(`${API_BASE_URL}/predictions/point`, {
     latitude: lat,
-    longitude: lon
+    longitude: lon,
+    horizon
   });
   return res.data;
 };
 
-export const fetchHotspots = async (thresholdPm25: number = 60.0): Promise<HotspotInfo[]> => {
+export const fetchHotspots = async (thresholdPm25: number = 55.0, resolution: number = 25): Promise<HotspotInfo[]> => {
   const res = await axios.get(`${API_BASE_URL}/hotspots`, {
-    params: { threshold_pm25: thresholdPm25 }
+    params: { threshold_pm25: thresholdPm25, resolution }
   });
   return res.data;
 };
 
-export const fetchGlobalExplanation = async () => {
+export const fetchGlobalExplanation = async (): Promise<{ global_importance: GlobalImportanceItem[]; disclaimer: string }> => {
   const res = await axios.get(`${API_BASE_URL}/explain/global`);
   return res.data;
 };
@@ -81,7 +89,42 @@ export const fetchDataSources = async (): Promise<DataSourceInfo[]> => {
   return res.data;
 };
 
-export const fetchDataQuality = async (): Promise<DataQualityReport> => {
+export const fetchDataSourcesStatus = async (): Promise<{ sources: SourceHealthItem[] }> => {
+  const res = await axios.get(`${API_BASE_URL}/data/status`);
+  return res.data;
+};
+
+export const fetchDataQuality = async (): Promise<any> => {
   const res = await axios.get(`${API_BASE_URL}/data/quality`);
   return res.data;
+};
+
+export const fetchLocalities = async (query: string = ''): Promise<LocalityItem[]> => {
+  const params: Record<string, any> = {};
+  if (query) params.q = query;
+  const res = await axios.get(`${API_BASE_URL}/localities`, { params });
+  return res.data;
+};
+
+export const fetchWardsGeoJSON = async (): Promise<any> => {
+  const res = await axios.get(`${API_BASE_URL}/boundaries/wards`);
+  return res.data;
+};
+
+export const uploadCPCBCsv = async (file: File, origin?: string): Promise<ImportManifest> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (origin) formData.append('source_origin', origin);
+  const res = await axios.post(`${API_BASE_URL}/data/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return res.data;
+};
+
+export const exportDataUrl = (format: 'csv' | 'json', days: number = 30, stationId?: string) => {
+  let url = `${API_BASE_URL}/export?format=${format}&days=${days}`;
+  if (stationId && stationId !== 'all') {
+    url += `&station_id=${stationId}`;
+  }
+  return url;
 };

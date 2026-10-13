@@ -1,75 +1,78 @@
 """
-Spatial Predictions API Router.
+Spatial Predictions & Future Forecasting API Router.
 """
 
-import os
-import joblib
-import pandas as pd
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
-from backend.app.schemas.schemas import SpatialGridResponse, PredictionPoint, Location
+from datetime import datetime, timezone
+import pandas as pd
+from fastapi import APIRouter, Query, HTTPException
+from backend.app.schemas.schemas import SpatialGridResponse, PredictionPoint, ForecastRequest, normalize_horizon
 from backend.app.ml.spatial import generate_chennai_spatial_grid, predict_spatial_grid
-from backend.app.ml.feature_engineering import engineer_features
-from backend.app.aqi.calculator import calculate_cpcb_aqi
+from backend.app.ml.model_registry import ModelRegistry
+from backend.app.exceptions import ModelNotReadyException
 
 router = APIRouter(prefix="/api/predictions", tags=["Predictions"])
-
-MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "models"))
-
-def _load_model_artifacts():
-    ens_path = os.path.join(MODELS_DIR, "ensemble.pkl")
-    pipe_path = os.path.join(MODELS_DIR, "pipeline.pkl")
-    
-    if not os.path.exists(ens_path) or not os.path.exists(pipe_path):
-        raise HTTPException(status_code=500, detail="Trained model artifacts missing.")
-        
-    ensemble = joblib.load(ens_path)
-    pipeline = joblib.load(pipe_path)
-    return ensemble, pipeline
 
 @router.get("/map", response_model=SpatialGridResponse)
 def get_spatial_prediction_map(
     resolution: int = Query(25, ge=10, le=40),
-    target_date: Optional[str] = "2026-10-05"
+    horizon: str = Query("+24h", description="Forecast horizon (+1h, +6h, +12h, +24h, +48h)")
 ):
     """
-    Generate high-resolution spatial prediction grid heatmap over Chennai.
+    Generate high-resolution spatial prediction grid heatmap over Chennai for specified horizon.
+    Conforms to PRD v2.2 C-01 (503 if unready) and C-11 (422 if invalid horizon).
     """
-    ensemble, pipeline = _load_model_artifacts()
+    try:
+        norm_horizon = normalize_horizon(horizon)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    registry = ModelRegistry.get_instance()
+    if not registry.core_model_ready:
+        raise ModelNotReadyException(
+            detail=f"Prediction service unavailable: {registry.safe_error_message or 'model artifacts not ready.'}",
+            code="MODEL_NOT_READY"
+        )
+
     grid_df = generate_chennai_spatial_grid(grid_resolution=resolution)
-    
+
     result = predict_spatial_grid(
         grid_df=grid_df,
-        ensemble_model=ensemble,
-        pipeline=pipeline,
-        target_date=target_date
+        ensemble_model=registry.ensemble,
+        pipeline=registry.pipeline,
+        horizon=norm_horizon,
+        issued_at=datetime.now(timezone.utc)
     )
-    
-    return {
-        "grid": result["grid"],
-        "total_cells": result["total_cells"],
-        "bounds": result["bounds"],
-        "timestamp": target_date
-    }
+
+    return result
 
 @router.post("/point", response_model=PredictionPoint)
-def predict_location_point(loc: Location):
+def predict_location_point(req: ForecastRequest):
     """
-    Generate ML prediction and uncertainty bounds for a single coordinate in Chennai.
+    Generate ML prediction and Ensemble Prediction Spread for a coordinate in Chennai.
+    Conforms to PRD v2.3 Section 4.2. Guarantees valid_at > issued_at.
     """
-    ensemble, pipeline = _load_model_artifacts()
-    
+    registry = ModelRegistry.get_instance()
+    if not registry.core_model_ready:
+        raise ModelNotReadyException(
+            detail=f"Prediction service unavailable: {registry.safe_error_message or 'model artifacts not ready.'}",
+            code="MODEL_NOT_READY"
+        )
+
+    now_utc = datetime.now(timezone.utc)
     single_df = pd.DataFrame([{
-        "latitude": loc.latitude,
-        "longitude": loc.longitude,
-        "timestamp": pd.to_datetime("2026-10-05")
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+        "timestamp": now_utc
     }])
-    
+
     res = predict_spatial_grid(
         grid_df=single_df,
-        ensemble_model=ensemble,
-        pipeline=pipeline
+        ensemble_model=registry.ensemble,
+        pipeline=registry.pipeline,
+        horizon=req.horizon,
+        issued_at=now_utc
     )
-    
+
     point = res["grid"][0]
     return point

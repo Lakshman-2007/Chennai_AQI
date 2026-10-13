@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "model_details": {
+    "name": "Chennai Air Quality PM2.5 Walk-Forward Stacking Ensemble",
+    "version": "2.3.0",
+    "type": "Supervised Regression / Stacking Ensemble",
+    "target": "PM2.5 Surface Concentration (\u00b5g/m\u00b3)",
+    "forecast_horizon": "+24h prospective interval",
+    "created_at": "2026-10-13T11:53:43.455625+00:00",
+    "license": "MIT",
+    "training_environment": {
+      "python_version": "3.13.7",
+      "scikit_learn": "1.7.2",
+      "joblib": "1.5.2",
+      "xgboost": "3.4.1",
+      "lightgbm": "4.7.0",
+      "catboost": "1.2.10",
+      "shap": "0.52.0",
+      "numpy": "2.2.6",
+      "pandas": "2.3.2"
+    }
+  },
+  "intended_use": {
+    "primary_use": "Predicting next-day PM2.5 concentrations across Chennai monitoring stations and spatial grids.",
+    "caveats": "Forecast concentrations are not regulatory AQI without 24-hr averaging completeness. Sentinel-5P is an offline context feature."
+  },
+  "evaluation_factors": {
+    "chronological_holdout_samples": 637,
+    "holdout_date_start": "2025-12-31 00:00:00",
+    "holdout_date_end": "2026-03-31 00:00:00",
+    "metrics": {
+      "mae": 5.29,
+      "rmse": 6.45,
+      "r2": 0.882,
+      "mape": 14.52,
+      "model": "Ensemble (Stacking)",
+      "empirical_coverage_pct": 52.28,
+      "mean_ensemble_spread": 10.77
+    },
+    "empirical_holdout_coverage_pct": 52.28,
+    "baseline_comparison": {
+      "persistence_baseline_rmse": 19.12,
+      "seasonal_naive_rmse": 18.79,
+      "ensemble_rmse": 6.45,
+      "percentage_rmse_reduction": 66.27
+    }
+  },
+  "ethical_considerations": {
+    "transparency": "Predictions are accompanied by SHAP feature attributions (via XGBoost surrogate component) and Ensemble Prediction Spread (Inter-Model Disagreement Range) with empirical holdout coverage measured at 52.28%.",
+    "health_advice": "Non-diagnostic; informs public awareness without medical assertions."
+  }
+}
