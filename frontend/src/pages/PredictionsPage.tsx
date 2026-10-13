@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { fetchHotspots, fetchPointPrediction } from '../services/api';
 import type { HotspotInfo, PredictionPoint } from '../types/api';
-import { Layers, AlertTriangle, Search } from 'lucide-react';
+import { Layers, Search, Clock } from 'lucide-react';
+import { ScientificAlert } from '../components/ScientificAlert';
 
 export const PredictionsPage: React.FC = () => {
   const [hotspots, setHotspots] = useState<HotspotInfo[]>([]);
   const [threshold, setThreshold] = useState<number>(55.0);
+  const [horizon, setHorizon] = useState<string>('+24h');
   const [loading, setLoading] = useState<boolean>(true);
 
   const [latInput, setLatInput] = useState<string>('13.0827');
@@ -35,7 +37,7 @@ export const PredictionsPage: React.FC = () => {
     try {
       const lat = parseFloat(latInput);
       const lon = parseFloat(lonInput);
-      const res = await fetchPointPrediction(lat, lon);
+      const res = await fetchPointPrediction(lat, lon, horizon);
       setCustomPrediction(res);
     } catch (err) {
       console.error('Failed point prediction', err);
@@ -46,26 +48,51 @@ export const PredictionsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl flex items-center justify-between">
+      <ScientificAlert showSatelliteNote={false} />
+
+      {/* Header Bar */}
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-indigo-600/20 text-indigo-400 rounded-2xl border border-indigo-500/30">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-extrabold text-white">Spatial Predictions & Hotspot Clustering Engine</h3>
-            <p className="text-xs text-slate-400">Automated DBSCAN spatial clustering and point-wise ensemble inference with confidence bounds.</p>
+            <h3 className="text-base font-extrabold text-white">Prospective Forecasting & Hotspot Spatial Clustering</h3>
+            <p className="text-xs text-slate-400">
+              PM2.5 concentration forecast with calibrated 95% uncertainty intervals and DBSCAN cluster detection.
+            </p>
           </div>
+        </div>
+
+        {/* Global Horizon Selector */}
+        <div className="flex items-center space-x-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs">
+          <Clock className="w-4 h-4 text-indigo-400 ml-1.5" />
+          <span className="text-slate-400 font-semibold px-1">Valid Horizon:</span>
+          {['+1h', '+6h', '+12h', '+24h'].map((h) => (
+            <button
+              key={h}
+              onClick={() => setHorizon(h)}
+              className={`px-3 py-1 rounded-xl font-bold transition-all ${
+                horizon === h
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {h}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+        {/* Custom Point Query Panel */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
           <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-            <Search className="w-5 h-5 text-indigo-400" />
-            <h4 className="text-sm font-bold text-white">Custom Coordinate Query</h4>
+            <Search className="w-4 h-4 text-indigo-400" />
+            <h4 className="text-sm font-bold text-white">Single-Coordinate Forecast</h4>
           </div>
 
-          <form onSubmit={handleCustomPredict} className="space-y-3">
+          <form onSubmit={handleCustomPredict} className="space-y-3.5">
             <div>
               <label className="text-xs font-semibold text-slate-400 block mb-1">Latitude (°N)</label>
               <input
@@ -99,116 +126,119 @@ export const PredictionsPage: React.FC = () => {
               disabled={predicting}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-indigo-600/20"
             >
-              {predicting ? 'Running Ensemble Model...' : 'Query Location Prediction'}
+              {predicting ? 'Evaluating Ensemble...' : `Compute Forecast (${horizon})`}
             </button>
           </form>
 
+          {/* Point Prediction Output Card */}
           {customPrediction && (
-            <div className="mt-4 bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400">Prediction Result</span>
-                <span
-                  className="px-2.5 py-0.5 rounded-full text-xs font-extrabold"
-                  style={{ backgroundColor: `${customPrediction.color}20`, color: customPrediction.color }}
-                >
-                  {customPrediction.category}
+            <div className="mt-4 p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+                  Target: {customPrediction.target} Forecast
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-900/40 text-indigo-300">
+                  {customPrediction.horizon}
                 </span>
               </div>
 
-              <div className="text-3xl font-black" style={{ color: customPrediction.color }}>
-                {customPrediction.predicted_aqi} <span className="text-xs text-slate-400">AQI</span>
+              <div>
+                <div className="text-3xl font-black text-white">
+                  {customPrediction.predicted_pm25}{' '}
+                  <span className="text-xs font-semibold text-slate-400">{customPrediction.unit}</span>
+                </div>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: `${customPrediction.color}25`, color: customPrediction.color }}
+                  >
+                    Derived AQI: ~{customPrediction.predicted_aqi} ({customPrediction.category})
+                  </span>
+                </div>
               </div>
 
-              <div className="text-xs space-y-1 text-slate-300">
-                <div className="flex justify-between">
-                  <span>PM2.5:</span>
-                  <span className="font-bold">{customPrediction.predicted_pm25} µg/m³</span>
+              {/* 95% Confidence Interval */}
+              <div className="p-2.5 bg-slate-900 rounded-xl text-xs space-y-1">
+                <div className="text-[11px] text-slate-400 font-semibold">95% Calibrated Confidence Interval:</div>
+                <div className="font-mono font-bold text-sky-400 text-xs">
+                  [{customPrediction.lower_bound_pm25} — {customPrediction.upper_bound_pm25}] {customPrediction.unit}
                 </div>
-                <div className="flex justify-between">
-                  <span>PM10:</span>
-                  <span className="font-bold">{customPrediction.predicted_pm10} µg/m³</span>
-                </div>
-                <div className="flex justify-between text-indigo-400">
-                  <span>95% Confidence Interval:</span>
-                  <span className="font-mono font-bold">[{customPrediction.lower_bound_pm25} - {customPrediction.upper_bound_pm25}]</span>
-                </div>
+              </div>
+
+              <div className="space-y-1 text-[10px] text-slate-400 border-t border-slate-800/80 pt-2 font-mono">
+                <div>Issued: {new Date(customPrediction.issued_at).toLocaleTimeString()}</div>
+                <div>Valid At: {new Date(customPrediction.valid_at).toLocaleString()}</div>
+                <div>Model: {customPrediction.model_version}</div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              <h4 className="text-sm font-bold text-white">Detected Pollution Hotspots in Chennai</h4>
+        {/* Hotspot Clustering Panel */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <h4 className="text-base font-bold text-white">Identified Spatial Pollution Hotspots</h4>
+              <p className="text-xs text-slate-400">
+                DBSCAN spatial density clusters identified with PM2.5 threshold: {threshold} µg/m³.
+              </p>
             </div>
 
             <div className="flex items-center space-x-2 text-xs">
-              <span className="text-slate-400">Threshold PM2.5:</span>
-              <select
+              <span className="text-slate-400 font-semibold">Threshold:</span>
+              <input
+                type="range"
+                min="40"
+                max="80"
+                step="5"
                 value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-white font-bold focus:outline-none"
-              >
-                <option value={45}>45 µg/m³ (Sensitive)</option>
-                <option value={55}>55 µg/m³ (Moderate)</option>
-                <option value={70}>70 µg/m³ (Severe)</option>
-              </select>
+                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                className="accent-indigo-500 cursor-pointer"
+              />
+              <span className="font-mono font-bold text-indigo-400">{threshold} µg/m³</span>
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-16 text-center text-xs text-indigo-400 font-semibold">
-              Running spatial clustering algorithm...
-            </div>
-          ) : hotspots.length === 0 ? (
-            <div className="py-16 text-center text-xs text-slate-500 font-medium">
-              No pollution hotspots detected above the selected threshold of {threshold} µg/m³.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {hotspots.map((hs) => (
+          <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+            {loading ? (
+              <div className="py-12 text-center text-xs text-indigo-400">Clustering spatial grid...</div>
+            ) : hotspots.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-500">
+                No persistent clusters above {threshold} µg/m³ threshold.
+              </div>
+            ) : (
+              hotspots.map((hs) => (
                 <div
-                  key={hs.hotspot_id}
-                  className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 hover:border-slate-700 transition-all"
+                  key={hs.cluster_id}
+                  className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 hover:border-slate-700 transition-all"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-wide">
-                      {hs.hotspot_id}
-                    </span>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-extrabold"
-                      style={{ backgroundColor: `${hs.color}20`, color: hs.color }}
-                    >
-                      {hs.category}
-                    </span>
-                  </div>
-
-                  <h5 className="text-sm font-extrabold text-white">{hs.location_name}</h5>
-
-                  <div className="text-xs text-slate-400 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Mean Predicted AQI:</span>
-                      <span className="font-bold text-slate-200">{hs.mean_predicted_aqi}</span>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-white">Hotspot Cluster #{hs.cluster_id}</span>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: `${hs.color}25`, color: hs.color }}
+                      >
+                        {hs.severity} Severity
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Peak PM2.5 Level:</span>
-                      <span className="font-bold text-red-400">{hs.peak_pm25} µg/m³</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Dominant Driver:</span>
-                      <span className="font-bold text-indigo-400">{hs.dominant_pollutant}</span>
+                    <div className="text-xs text-slate-400 mt-1">
+                      Center: {hs.center_latitude}°N, {hs.center_longitude}°E ({hs.point_count} grid cells)
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 italic bg-slate-900/60 p-2 rounded-xl">
-                    "{hs.advisory}"
-                  </p>
+                  <div className="text-right">
+                    <div className="text-lg font-black" style={{ color: hs.color }}>
+                      Mean PM2.5: {hs.mean_pm25} µg/m³
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Estimated AQI: ~{hs.estimated_aqi} ({hs.category})
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

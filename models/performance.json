@@ -1,5 +1,19 @@
 [
   {
+    "mae": 14.89,
+    "rmse": 19.12,
+    "r2": -0.0369,
+    "mape": 42.59,
+    "model": "Baseline: Persistence (Lag-1D)"
+  },
+  {
+    "mae": 15.16,
+    "rmse": 18.79,
+    "r2": -0.0005,
+    "mape": 49.42,
+    "model": "Baseline: Seasonal-Naive"
+  },
+  {
     "mae": 5.36,
     "rmse": 7.06,
     "r2": 0.8586,
@@ -56,10 +70,10 @@
     "model": "CatBoost"
   },
   {
-    "mae": 5.25,
-    "rmse": 6.54,
-    "r2": 0.8789,
-    "mape": 15.08,
+    "mae": 5.29,
+    "rmse": 6.45,
+    "r2": 0.882,
+    "mape": 14.52,
     "model": "Ensemble (Stacking)"
   }
 ]

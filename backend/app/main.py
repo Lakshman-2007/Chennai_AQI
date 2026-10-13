@@ -1,5 +1,6 @@
 """
 FastAPI Main Application Entrypoint for Chennai Air Quality Framework.
+Version 2.1.0 — Binding Engineering Amendments & Operational Release Gates.
 """
 
 from fastapi import FastAPI
@@ -12,13 +13,16 @@ from backend.app.api import (
     hotspots,
     explain,
     model_info,
-    data_sources
+    data_sources,
+    gis
 )
+from backend.app.ml.model_registry import ModelRegistry
+from backend.app.data_processing.store import DataStore
 
 app = FastAPI(
     title="Chennai Air Quality Intelligence System",
-    description="Hybrid Explainable Multi-Source Air Quality Prediction Framework for Chennai using Sentinel-5P Satellite Data, Ground Stations, Weather Data, and Ensemble ML.",
-    version="2.0.0"
+    description="Hybrid Explainable Multi-Source Air Quality Prediction Framework for Chennai using Sentinel-5P Satellite Data, Ground Stations, Weather Data, and Walk-Forward Stacking ML.",
+    version="2.1.0"
 )
 
 # CORS Middleware (allows React frontend connection)
@@ -38,14 +42,31 @@ app.include_router(hotspots.router)
 app.include_router(explain.router)
 app.include_router(model_info.router)
 app.include_router(data_sources.router)
+app.include_router(gis.router)
 
 @app.get("/api/health", tags=["Health"])
 def health_check():
+    """
+    Comprehensive system health and readiness check (FR-22).
+    Evaluates application state, data store, and model registry readiness.
+    """
+    store = DataStore.get_instance()
+    registry = ModelRegistry.get_instance()
+    mode = store.get_mode().value
+
+    model_status = registry.get_status()
+    all_ready = registry.is_ready and (store._df is not None and not store._df.empty)
+
     return {
-        "status": "healthy",
-        "system": "Chennai AQI Prediction Framework",
-        "version": "2.0.0",
-        "city": "Chennai, Tamil Nadu, India"
+        "status": "healthy" if all_ready else "degraded",
+        "system": "Chennai AQI Intelligence Platform",
+        "version": "2.1.0",
+        "city": "Chennai, Tamil Nadu, India",
+        "data_mode": mode,
+        "is_synthetic": mode == "demo",
+        "model": model_status,
+        "cpcb_eligibility_enforced": True,
+        "crs": "EPSG:4326"
     }
 
 if __name__ == "__main__":

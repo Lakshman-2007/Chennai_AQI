@@ -1,5 +1,9 @@
 {
+  "model_id": "Chennai-AQI-Stacking-v2.1",
   "target_variable": "ground_pm25",
+  "target_unit": "\u00b5g/m\u00b3",
+  "forecast_horizon": "+24h",
+  "validation_strategy": "Chronological Holdout (20%) + 5-Fold Walk-Forward TimeSeriesSplit",
   "feature_columns": [
     "day_of_year",
     "month",
@@ -31,18 +35,26 @@
   "num_train_samples": 2548,
   "num_test_samples": 637,
   "ensemble_weights": {
-    "Linear Regression": 0.3566,
+    "Linear Regression": 0.0827,
     "Decision Tree": 0.0,
     "Random Forest": 0.0,
-    "Extra Trees": 0.1734,
-    "Gradient Boosting": 0.017,
-    "XGBoost": 0.1005,
-    "LightGBM": 0.1957,
-    "CatBoost": 0.1569
+    "Extra Trees": 0.2053,
+    "Gradient Boosting": 0.0295,
+    "XGBoost": 0.0,
+    "LightGBM": 0.2982,
+    "CatBoost": 0.3842
   },
   "stations_count": 7,
   "time_range": {
     "start": "2025-01-01 00:00:00",
     "end": "2026-03-31 00:00:00"
-  }
+  },
+  "baseline_rmse": 19.12,
+  "ensemble_rmse": 6.45,
+  "rmse_improvement_pct": 66.27,
+  "leakage_safeguards": [
+    "Strict TimeSeriesSplit expanding window (no random shuffling)",
+    "Holdout set reserved untouched prior to meta-learner fitting",
+    "Preprocessing pipeline fit strictly on training partition"
+  ]
 }
